@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가계부</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f8f6;--surface:#ffffff;--surface2:#f2f2ef;
+  --border:#e0e0da;--border2:#c8c8c0;
+  --text:#1a1a18;--text2:#6b6b64;--text3:#9a9a92;
+  --green:#0f8a62;--green-bg:#e8f5ef;
+  --red:#c0392b;--red-bg:#fdf0ee;
+  --blue:#1a5fa8;--blue-bg:#e8f0fa;
+  --amber:#8a5e0a;--amber-bg:#fdf4e0;
+  --radius:10px;--radius-sm:6px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#111110;--surface:#1c1c1a;--surface2:#252522;
+    --border:#2e2e2a;--border2:#3e3e38;
+    --text:#e8e8e0;--text2:#8a8a80;--text3:#5a5a54;
+    --green:#2db87e;--green-bg:#0d2b1e;
+    --red:#e05a4a;--red-bg:#2b0f0a;
+    --blue:#5a9ae0;--blue-bg:#0d1e38;
+    --amber:#d4a030;--amber-bg:#2b1e08;
+  }
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;font-size:15px;line-height:1.5;min-height:100vh}
+
+/* 네비 */
+.app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;position:sticky;top:0;z-index:100}
+.header-inner{max-width:640px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px}
+.app-title{font-size:15px;font-weight:600;color:var(--text)}
+.qnow{font-family:'Courier New',monospace;font-size:11px;color:var(--text3)}
+.tab-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px}
+.tab-inner{max-width:640px;margin:0 auto;display:flex;gap:0}
+.tab-btn{padding:10px 20px;font-size:14px;font-weight:500;color:var(--text2);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--text)}
+
+/* 레이아웃 */
+.page{display:none;max-width:640px;margin:0 auto;padding:16px}
+.page.active{display:block}
+
+/* 카드 */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+
+/* 잔고 그리드 */
+.acct-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+.acct-card{background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px}
+.acct-name{font-size:11px;color:var(--text3);margin-bottom:3px}
+.acct-bal{font-size:22px;font-weight:600;letter-spacing:-.02em}
+.acct-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.acct-lock{font-size:11px;color:var(--red);margin-top:2px}
+.total-row{background:var(--surface2);border-radius:var(--radius-sm);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.total-label{font-size:12px;color:var(--text2)}
+.total-val{font-size:24px;font-weight:700;letter-spacing:-.02em}
+
+/* 폼 요소 */
+.field-group{display:flex;flex-direction:column;gap:4px;flex:1}
+.field-group label{font-size:12px;color:var(--text2);font-weight:500}
+.field-group input,.field-group select{height:38px;padding:0 10px;font-size:14px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);width:100%}
+.field-group input:focus,.field-group select:focus{outline:none;border-color:var(--blue)}
+.form-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.form-row .field-group{min-width:80px}
+
+/* 태그 */
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tag{padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer;border:1px solid var(--border2);color:var(--text2);background:var(--surface);transition:all .12s}
+.tag:hover{border-color:var(--border);background:var(--surface2)}
+.tag.sel-in{background:var(--green);color:#fff;border-color:var(--green)}
+.tag.sel-out{background:var(--red);color:#fff;border-color:var(--red)}
+.tag.sel-acc{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tag-add{border-style:dashed;background:transparent}
+
+/* 버튼 */
+.btn{height:38px;padding:0 16px;font-size:14px;font-weight:500;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;border:1px solid var(--border2);background:var(--surface);color:var(--text);transition:all .12s}
+.btn:hover{background:var(--surface2)}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green)}.btn-green:hover{opacity:.88}
+.btn-red{background:var(--red);color:#fff;border-color:var(--red)}.btn-red:hover{opacity:.88}
+.btn-blue{background:var(--blue);color:#fff;border-color:var(--blue)}.btn-blue:hover{opacity:.88}
+.btn-amber{background:var(--amber);color:#fff;border-color:var(--amber)}.btn-amber:hover{opacity:.88}
+.btn-sm{height:32px;padding:0 12px;font-size:13px}
+.btn-icon{height:32px;width:32px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+
+/* 섹션 구분 */
+.sub-label{font-size:12px;font-weight:600;color:var(--text2);margin:12px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+/* 테이블 */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:7px 8px;color:var(--text3);font-weight:600;border-bottom:1px solid var(--border);font-size:11px;white-space:nowrap}
+td{padding:8px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.mono{font-family:'Courier New',monospace;font-size:12px;color:var(--text2)}
+
+/* 뱃지 */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-in{background:var(--green-bg);color:var(--green)}
+.b-out{background:var(--red-bg);color:var(--red)}
+.b-tr{background:var(--blue-bg);color:var(--blue)}
+.b-adj{background:var(--amber-bg);color:var(--amber)}
+.b-settle{background:var(--red-bg);color:var(--red)}
+
+/* 금액 색상 */
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--text)}
+
+/* 알림 */
+.notice{font-size:12px;color:var(--text2);background:var(--surface2);border-radius:var(--radius-sm);padding:8px 12px;margin-top:8px}
+.empty{text-align:center;padding:32px 16px;color:var(--text3);font-size:13px}
+
+/* 필터 */
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+
+/* 상단 액션 바 */
+.action-bar{display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px}
+
+/* 설정 항목 */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:14px;color:var(--text)}
+.setting-val{font-size:14px;color:var(--text2)}
+
+@media(max-width:400px){
+  .acct-bal{font-size:18px}
+  .total-val{font-size:20px}
+  .tab-btn{padding:10px 14px;font-size:13px}
+  .form-row .field-group{min-width:70px}
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="header-inner">
+    <span class="app-title">가계부</span>
+    <span class="qnow" id="qnow"></span>
+  </div>
+</div>
+<div class="tab-bar">
+  <div class="tab-inner">
+    <button class="tab-btn active" onclick="showPage('input')">입력</button>
+    <button class="tab-btn" onclick="showPage('review')">리뷰</button>
+    <button class="tab-btn" onclick="showPage('settings')">설정</button>
+  </div>
+</div>
+
+<!-- 입력 -->
+<div id="page-input" class="page active">
+
+  <div class="acct-grid" id="acctGrid"></div>
+  <div class="total-row">
+    <span class="total-label">총잔고</span>
+    <span class="total-val" id="totalBal">0</span>
+  </div>
+
+  <!-- 수입 -->
+  <div class="card">
+    <div class="card-title">수입</div>
+    <div class="tag-row" id="inCatTags"></div>
+    <div class="sub-label">입금 잔고</div>
+    <div class="tag-row" id="inAcctTags"></div>
+    <div class="form-row">
+      <div class="field-group" style="min-width:90px"><label>총수입</label><input type="number" id="inAmt" placeholder="5000" inputmode="numeric"></div>
+      <div class="field-group" style="min-width:80px"><label>수수료</label><input type="number" id="inFee" placeholder="550" inputmode="numeric"></div>
+      <div class="field-group" style="min-width:110px"><label>메모</label><input type="text" id="inMemo" placeholder="선택"></div>
+    </div>
+    <div style="margin-top:10px">
+      <button class="btn btn-green" onclick="addIncome()">수입 추가</button>
+    </div>
+  </div>
+
+  <!-- 지출 -->
+  <div class="card">
+    <div class="card-title">지출</div>
+    <div class="tag-row" id="outCatTags"></div>
+    <div class="sub-label">차감 잔고</div>
+    <div class="tag-row" id="outAcctTags"></div>
+    <div class="form-row">
+      <div class="field-group" style="min-width:100px"><label>금액</label><input type="number" id="outAmt" placeholder="6100" inputmode="numeric"></div>
+      <div class="field-group" style="min-width:130px"><label>메모</label><input type="text" id="outMemo" placeholder="그외 선택 시 필수"></div>
+    </div>
+    <div style="margin-top:10px">
+      <button class="btn btn-red" onclick="addExpense()">지출 추가</button>
+    </div>
+  </div>
+
+  <!-- 잔고 이전 -->
+  <div class="card">
+    <div class="card-title">잔고 이전</div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="field-group"><label>출금 잔고</label><select id="trFrom" onchange="updateBaNotice()"></select></div>
+      <div style="align-self:flex-end;padding-bottom:10px;color:var(--text3);font-size:18px">→</div>
+      <div class="field-group"><label>입금 잔고</label><select id="trTo"></select></div>
+    </div>
+    <div class="form-row">
+      <div class="field-group" style="min-width:90px"><label>이전금액</label><input type="number" id="trAmt" placeholder="0" inputmode="numeric"></div>
+      <div class="field-group" style="min-width:80px"><label>이전수수료</label><input type="number" id="trFee" placeholder="0" inputmode="numeric"></div>
+      <div class="field-group" style="min-width:110px"><label>메모</label><input type="text" id="trMemo"></div>
+    </div>
+    <div id="baNotice" class="notice" style="display:none"></div>
+    <div style="margin-top:10px">
+      <button class="btn btn-blue" onclick="addTransfer()">이전 실행</button>
+    </div>
+  </div>
+
+  <!-- 잔액 보정 -->
+  <div class="card">
+    <div class="card-title">잔액 보정</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">실제 잔액 입력 → 계산값과 차이를 자동으로 수입/지출 처리</div>
+    <div class="form-row">
+      <div class="field-group"><label>잔고</label><select id="adjAcct"></select></div>
+      <div class="field-group" style="min-width:100px"><label>실제 잔액</label><input type="number" id="adjAmt" inputmode="numeric"></div>
+      <div class="field-group" style="min-width:110px"><label>메모</label><input type="text" id="adjMemo" placeholder="선택"></div>
+    </div>
+    <div style="margin-top:10px">
+      <button class="btn btn-amber" onclick="addAdjust()">보정 실행</button>
+    </div>
+  </div>
+
+  <!-- 바잔고 월정산 -->
+  <div class="card">
+    <div class="card-title">바잔고 월정산</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">고정잔액을 지출 처리하고 0으로 리셋합니다.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div id="settleInfo" style="font-size:14px;color:var(--text)"></div>
+      <button class="btn btn-red" onclick="doSettle()">정산 실행</button>
+    </div>
+  </div>
+
+  <!-- 오늘 내역 -->
+  <div class="card">
+    <div class="card-title">오늘 내역</div>
+    <div id="todayList"></div>
+  </div>
+</div>
+
+<!-- 리뷰 -->
+<div id="page-review" class="page">
+  <div class="acct-grid" id="reviewAcctGrid"></div>
+  <div class="total-row">
+    <span class="total-label">총잔고</span>
+    <span class="total-val" id="reviewTotal">0</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">기간 필터</div>
+    <div class="filter-row">
+      <div class="field-group"><label>시작일</label><input type="date" id="fStart"></div>
+      <div class="field-group"><label>종료일</label><input type="date" id="fEnd"></div>
+      <button class="btn" onclick="applyFilter()">조회</button>
+      <button class="btn" onclick="clearFilter()">전체</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="action-bar">
+      <button class="btn btn-sm" onclick="exportTxt()">⬇ 내보내기</button>
+      <button class="btn btn-sm" onclick="document.getElementById('importFile').click()">⬆ 불러오기</button>
+      <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importTxt(event)">
+    </div>
+    <div class="table-wrap" id="reviewTable"></div>
+  </div>
+</div>
+
+<!-- 설정 -->
+<div id="page-settings" class="page">
+  <div class="card">
+    <div class="card-title">바잔고 고정잔액</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">이전 불가 잠금액. 이전 가능액 = 바잔고 총잔액 − 고정잔액</div>
+    <div class="form-row">
+      <div class="field-group"><label>고정잔액</label><input type="number" id="baLockInput" inputmode="numeric"></div>
+      <button class="btn" onclick="saveBaLock()">저장</button>
+    </div>
+    <div id="baLockDisplay" style="margin-top:10px;font-size:13px;color:var(--text2)"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">수입 카테고리</div>
+    <div class="tag-row" id="settingInCats"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">지출 카테고리</div>
+    <div class="tag-row" id="settingOutCats"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">잔고 계정</div>
+    <div class="tag-row" id="settingAccts"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">데이터 초기화</div>
+    <button class="btn btn-red" onclick="resetAll()">전체 초기화</button>
+  </div>
+</div>
+
+<script>
+// ── Qcode ──
+function getFirstSunday(y){
+  const j=new Date(y,0,1);
+  const d=j.getDay();
+  const s=new Date(j);
+  s.setDate(j.getDate()-(d===0?0:d));
+  return s;
+}
+function getWeekNum(d){
+  const fs=getFirstSunday(d.getFullYear());
+  return Math.floor((d-fs)/86400000/7)+1;
+}
+function buildQcode(d){
+  const yy=String(d.getFullYear()).slice(-2);
+  const ww=String(getWeekNum(d)).padStart(2,'0');
+  const dow=d.getDay();
+  const hh=String(d.getHours()).padStart(2,'0');
+  const t=Math.floor(d.getMinutes()/10);
+  return `${yy}w${ww}${dow}v${hh}${t}`;
+}
+function qcodeLabel(qc){
+  const days=['일','월','화','수','목','금','토'];
+  const m=qc.match(/^(\d{2})w(\d{2})(\d)v(\d{2})(\d)$/);
+  if(!m)return qc;
+  const[,yy,ww,d,hh,t]=m;
+  return `20${yy}년 ${+ww}주차 ${days[+d]}요일 ${hh}:${t}0`;
+}
+function todayStr(){
+  const n=new Date();
+  return `${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}`;
+}
+
+// ── 상태 ──
+const DEF={
+  accts:['슈잔고','바잔고','카잔고','지잔고'],
+  inCats:['바','히'],
+  outCats:['출금수수료','주유','전기','가스','넷','폰','그외'],
+  baLock:0,
+  records:[]
+};
+let S={...DEF,accts:[...DEF.accts],inCats:[...DEF.inCats],outCats:[...DEF.outCats],records:[]};
+let selIn='바',selInAcct='슈잔고',selOut='출금수수료',selOutAcct='카잔고';
+let filterStart=null,filterEnd=null;
+
+function load(){
+  try{const s=JSON.parse(localStorage.getItem('ldg4')||'null');if(s)S=s;}catch(e){}
+}
+function save(){localStorage.setItem('ldg4',JSON.stringify(S));}
+const fmt=n=>Number(n).toLocaleString();
+
+// ── 잔고 계산 ──
+function calcBal(records){
+  const b={};
+  S.accts.forEach(a=>b[a]=0);
+  records.forEach(r=>{
+    if(r.type==='in'){if(b[r.acct]===undefined)b[r.acct]=0;b[r.acct]+=r.net;}
+    else if(r.type==='out'){if(b[r.acct]===undefined)b[r.acct]=0;b[r.acct]-=r.net;}
+    else if(r.type==='transfer'){
+      if(b[r.from]===undefined)b[r.from]=0;
+      if(b[r.to]===undefined)b[r.to]=0;
+      b[r.from]-=(r.amt+(r.fee||0));
+      b[r.to]+=r.amt;
+    }
+    else if(r.type==='adjust'){if(b[r.acct]===undefined)b[r.acct]=0;b[r.acct]+=r.diff;}
+    else if(r.type==='settle'){if(b['바잔고']===undefined)b['바잔고']=0;b['바잔고']-=r.amt;}
+  });
+  return b;
+}
+function curBal(){return calcBal(S.records);}
+
+// ── 잔고 그리드 ──
+function renderAcctGrid(gridId,totalId){
+  const bal=curBal();
+  const el=document.getElementById(gridId);
+  let html='';
+  S.accts.forEach(a=>{
+    const b=bal[a]||0;
+    let sub='';
+    if(a==='바잔고'&&S.baLock>0){
+      const avail=Math.max(0,b-S.baLock);
+      sub=`<div class="acct-lock">고정 ${fmt(S.baLock)}</div><div class="acct-sub">가용 ${fmt(avail)}</div>`;
+    }
+    html+=`<div class="acct-card"><div class="acct-name">${a}</div><div class="acct-bal ${b>=0?'pos':'neg'}">${fmt(b)}</div>${sub}</div>`;
+  });
+  el.innerHTML=html;
+  const total=Object.values(bal).reduce((s,v)=>s+v,0);
+  const tel=document.getElementById(totalId);
+  tel.textContent=fmt(total);
+  tel.className='total-val '+(total>=0?'pos':'neg');
+}
+
+// ── 태그 ──
+function tags(elId,items,sel,cls,onClick,onAdd){
+  const el=document.getElementById(elId);el.innerHTML='';
+  items.forEach(c=>{
+    const t=document.createElement('span');
+    t.className='tag'+(sel===c?' '+cls:'');
+    t.textContent=c;
+    t.onclick=()=>onClick(c);
+    el.appendChild(t);
+  });
+  if(onAdd){
+    const a=document.createElement('span');
+    a.className='tag tag-add';
+    a.textContent='+ 추가';
+    a.onclick=onAdd;
+    el.appendChild(a);
+  }
+}
+function renderInCatTags(){tags('inCatTags',S.inCats,selIn,'sel-in',c=>{selIn=c;renderInCatTags();});}
+function renderInAcctTags(){tags('inAcctTags',S.accts,selInAcct,'sel-acc',c=>{selInAcct=c;renderInAcctTags();});}
+function renderOutCatTags(){tags('outCatTags',S.outCats,selOut,'sel-out',c=>{selOut=c;renderOutCatTags();});}
+function renderOutAcctTags(){tags('outAcctTags',S.accts,selOutAcct,'sel-acc',c=>{selOutAcct=c;renderOutAcctTags();});}
+
+function populateSel(){
+  ['trFrom','trTo','adjAcct'].forEach(id=>{
+    const el=document.getElementById(id);
+    const prev=el.value;
+    el.innerHTML=S.accts.map(a=>`<option value="${a}">${a}</option>`).join('');
+    if(S.accts.includes(prev))el.value=prev;
+  });
+  document.getElementById('trTo').value='카잔고';
+  updateBaNotice();
+  updateSettleInfo();
+}
+
+function updateBaNotice(){
+  const from=document.getElementById('trFrom').value;
+  const el=document.getElementById('baNotice');
+  if(from==='바잔고'){
+    const bal=curBal();
+    const avail=Math.max(0,(bal['바잔고']||0)-S.baLock);
+    el.textContent=`이전 가능액: ${fmt(avail)} (총잔액 ${fmt(bal['바잔고']||0)} − 고정잔액 ${fmt(S.baLock)})`;
+    el.style.display='block';
+  } else {
+    el.style.display='none';
+  }
+}
+function updateSettleInfo(){
+  const el=document.getElementById('settleInfo');
+  if(el)el.textContent=`현재 고정잔액: ${fmt(S.baLock)}`;
+}
+
+// ── 거래 추가 ──
+function addIncome(){
+  const amt=parseFloat(document.getElementById('inAmt').value);
+  const fee=parseFloat(document.getElementById('inFee').value)||0;
+  const memo=document.getElementById('inMemo').value.trim();
+  if(!amt||isNaN(amt)){alert('총수입을 입력하세요.');return;}
+  S.records.push({id:Date.now(),type:'in',cat:selIn,acct:selInAcct,qc:buildQcode(new Date()),date:todayStr(),amt,fee,net:amt-fee,memo});
+  document.getElementById('inAmt').value='';
+  document.getElementById('inFee').value='';
+  document.getElementById('inMemo').value='';
+  save();refresh();
+}
+
+function addExpense(){
+  const amt=parseFloat(document.getElementById('outAmt').value);
+  const memo=document.getElementById('outMemo').value.trim();
+  if(!amt||isNaN(amt)){alert('금액을 입력하세요.');return;}
+  S.records.push({id:Date.now(),type:'out',cat:selOut,acct:selOutAcct,qc:buildQcode(new Date()),date:todayStr(),amt,fee:0,net:amt,memo});
+  document.getElementById('outAmt').value='';
+  document.getElementById('outMemo').value='';
+  save();refresh();
+}
+
+function addTransfer(){
+  const from=document.getElementById('trFrom').value;
+  const to=document.getElementById('trTo').value;
+  const amt=parseFloat(document.getElementById('trAmt').value);
+  const fee=parseFloat(document.getElementById('trFee').value)||0;
+  const memo=document.getElementById('trMemo').value.trim();
+  if(!amt||isNaN(amt)){alert('이전금액을 입력하세요.');return;}
+  if(from===to){alert('출금/입금 잔고가 동일합니다.');return;}
+  if(from==='바잔고'){
+    const avail=Math.max(0,(curBal()['바잔고']||0)-S.baLock);
+    if(amt+fee>avail){alert(`바잔고 이전 가능액(${fmt(avail)})을 초과합니다.`);return;}
+  }
+  S.records.push({id:Date.now(),type:'transfer',from,to,qc:buildQcode(new Date()),date:todayStr(),amt,fee,memo});
+  document.getElementById('trAmt').value='';
+  document.getElementById('trFee').value='';
+  document.getElementById('trMemo').value='';
+  save();refresh();
+}
+
+function addAdjust(){
+  const acct=document.getElementById('adjAcct').value;
+  const real=parseFloat(document.getElementById('adjAmt').value);
+  const memo=document.getElementById('adjMemo').value.trim();
+  if(isNaN(real)){alert('실제 잔액을 입력하세요.');return;}
+  const cur=curBal()[acct]||0;
+  const diff=real-cur;
+  if(diff===0){alert('현재 잔액과 동일합니다.');return;}
+  S.records.push({id:Date.now(),type:'adjust',acct,qc:buildQcode(new Date()),date:todayStr(),real,cur,diff,memo});
+  document.getElementById('adjAmt').value='';
+  document.getElementById('adjMemo').value='';
+  save();refresh();
+}
+
+function doSettle(){
+  if(S.baLock<=0){alert('고정잔액이 0입니다.\n설정 탭에서 고정잔액을 먼저 설정하세요.');return;}
+  if(!confirm(`바잔고 고정잔액 ${fmt(S.baLock)}원을 지출 처리하고 고정잔액을 0으로 리셋합니다.`))return;
+  S.records.push({id:Date.now(),type:'settle',qc:buildQcode(new Date()),date:todayStr(),amt:S.baLock,memo:'바잔고 월정산'});
+  S.baLock=0;
+  save();refresh();renderSettings();
+}
+
+function deleteRecord(id){
+  if(!confirm('이 내역을 삭제하시겠습니까?'))return;
+  S.records=S.records.filter(r=>r.id!==id);
+  save();refresh();
+  const rp=document.getElementById('page-review');
+  if(rp.classList.contains('active'))renderReview();
+}
+
+// ── 오늘 내역 ──
+function renderToday(){
+  const today=todayStr();
+  const list=S.records.filter(r=>r.date===today).sort((a,b)=>a.id-b.id);
+  const el=document.getElementById('todayList');
+  if(!list.length){el.innerHTML='<div class="empty">오늘 입력된 내역이 없습니다.</div>';return;}
+  let html='<div class="table-wrap"><table><thead><tr><th>Qcode</th><th>유형</th><th>항목/잔고</th><th>실금액</th><th></th></tr></thead><tbody>';
+  list.forEach(r=>{
+    const badge=getBadge(r.type);
+    const {acctStr,netStr}=getDisplayFields(r);
+    const cat=r.cat||'';
+    const info=cat?(cat+(acctStr?` / ${acctStr}`:'')):acctStr;
+    html+=`<tr>
+      <td class="mono" title="${qcodeLabel(r.qc)}">${r.qc}</td>
+      <td>${badge}</td>
+      <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${info}</td>
+      <td>${netStr}</td>
+      <td><button onclick="deleteRecord(${r.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 4px">×</button></td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+}
+
+function getBadge(type){
+  const map={in:'<span class="badge b-in">수입</span>',out:'<span class="badge b-out">지출</span>',transfer:'<span class="badge b-tr">이전</span>',adjust:'<span class="badge b-adj">보정</span>',settle:'<span class="badge b-settle">정산</span>'};
+  return map[type]||type;
+}
+
+function getDisplayFields(r){
+  let acctStr='',netStr='';
+  if(r.type==='in'){acctStr=r.acct;netStr=`<span class="pos">+${fmt(r.net)}</span>`;}
+  else if(r.type==='out'){acctStr=r.acct;netStr=`<span class="neg">−${fmt(r.net)}</span>`;}
+  else if(r.type==='transfer'){acctStr=`${r.from}→${r.to}`;netStr=`<span class="neu">${fmt(r.amt)}</span>`;}
+  else if(r.type==='adjust'){acctStr=r.acct;netStr=r.diff>=0?`<span class="pos">+${fmt(r.diff)}</span>`:`<span class="neg">−${fmt(Math.abs(r.diff))}</span>`;}
+  else if(r.type==='settle'){acctStr='바잔고';netStr=`<span class="neg">−${fmt(r.amt)}</span>`;}
+  return{acctStr,netStr};
+}
+
+// ── 리뷰 ──
+function filtered(){
+  return S.records.filter(r=>{
+    if(filterStart&&r.date<filterStart)return false;
+    if(filterEnd&&r.date>filterEnd)return false;
+    return true;
+  }).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
+}
+function applyFilter(){
+  filterStart=document.getElementById('fStart').value||null;
+  filterEnd=document.getElementById('fEnd').value||null;
+  renderReview();
+}
+function clearFilter(){
+  filterStart=null;filterEnd=null;
+  document.getElementById('fStart').value='';
+  document.getElementById('fEnd').value='';
+  renderReview();
+}
+function renderReview(){
+  renderAcctGrid('reviewAcctGrid','reviewTotal');
+  const list=filtered();
+  const wrap=document.getElementById('reviewTable');
+  if(!list.length){wrap.innerHTML='<div class="empty">내역이 없습니다.</div>';return;}
+  let html='<table><thead><tr><th>Qcode</th><th>유형</th><th>카테고리</th><th>잔고</th><th>총액</th><th>수수료</th><th>실금액</th><th>메모</th></tr></thead><tbody>';
+  list.forEach(r=>{
+    const badge=getBadge(r.type);
+    let acctStr='',totStr='',feeStr='—',netStr='';
+    if(r.type==='in'){acctStr=r.acct;totStr=`+${fmt(r.amt)}`;feeStr=r.fee?`−${fmt(r.fee)}`:'—';netStr=`<span class="pos">+${fmt(r.net)}</span>`;}
+    else if(r.type==='out'){acctStr=r.acct;totStr=`−${fmt(r.amt)}`;netStr=`<span class="neg">−${fmt(r.net)}</span>`;}
+    else if(r.type==='transfer'){acctStr=`${r.from}→${r.to}`;totStr=fmt(r.amt);feeStr=r.fee?`−${fmt(r.fee)}`:'—';netStr=`<span class="neu">${fmt(r.amt)}</span>`;}
+    else if(r.type==='adjust'){acctStr=r.acct;totStr='보정';netStr=r.diff>=0?`<span class="pos">+${fmt(r.diff)}</span>`:`<span class="neg">−${fmt(Math.abs(r.diff))}</span>`;}
+    else if(r.type==='settle'){acctStr='바잔고';totStr=`−${fmt(r.amt)}`;netStr=`<span class="neg">−${fmt(r.amt)}</span>`;}
+    html+=`<tr>
+      <td class="mono" title="${qcodeLabel(r.qc)}">${r.qc}</td>
+      <td>${badge}</td>
+      <td style="font-size:12px;white-space:nowrap">${r.cat||''}</td>
+      <td style="font-size:12px;white-space:nowrap">${acctStr}</td>
+      <td style="font-size:12px;white-space:nowrap">${totStr}</td>
+      <td style="font-size:12px;white-space:nowrap">${feeStr}</td>
+      <td style="white-space:nowrap">${netStr}</td>
+      <td style="font-size:12px;color:var(--text2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.memo||''}</td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+// ── 설정 ──
+function renderSettings(){
+  document.getElementById('baLockInput').value=S.baLock||'';
+  document.getElementById('baLockDisplay').textContent=`현재 고정잔액: ${fmt(S.baLock)}`;
+  tags('settingInCats',S.inCats,null,'',()=>{},()=>{
+    const n=prompt('새 수입 카테고리 이름:');
+    if(n&&n.trim()&&!S.inCats.includes(n.trim())){S.inCats.push(n.trim());save();renderSettings();}
+  });
+  tags('settingOutCats',S.outCats,null,'',()=>{},()=>{
+    const n=prompt('새 지출 카테고리 이름:');
+    if(n&&n.trim()&&!S.outCats.includes(n.trim())){S.outCats.push(n.trim());save();renderSettings();}
+  });
+  tags('settingAccts',S.accts,null,'',()=>{},()=>{
+    const n=prompt('새 잔고 계정 이름:');
+    if(n&&n.trim()&&!S.accts.includes(n.trim())){S.accts.push(n.trim());save();renderSettings();populateSel();}
+  });
+}
+function saveBaLock(){
+  const v=parseFloat(document.getElementById('baLockInput').value);
+  if(isNaN(v)||v<0){alert('0 이상의 숫자를 입력하세요.');return;}
+  S.baLock=v;save();renderSettings();refresh();
+}
+function resetAll(){
+  if(!confirm('모든 데이터를 초기화합니다.\n이 작업은 되돌릴 수 없습니다.'))return;
+  localStorage.removeItem('ldg4');
+  location.reload();
+}
+
+// ── 내보내기/가져오기 ──
+function exportTxt(){
+  const lines=[
+    '# 가계부 데이터',
+    '# exported: '+new Date().toLocaleString(),
+    '# version: 4',
+    `# baLock: ${S.baLock}`,
+    `# accts: ${S.accts.join(',')}`,
+    `# inCats: ${S.inCats.join(',')}`,
+    `# outCats: ${S.outCats.join(',')}`,
+    '# ---',
+    ''
+  ];
+  S.records.forEach(r=>lines.push(JSON.stringify(r)));
+  const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`ledger_${todayStr()}.txt`;
+  a.click();
+}
+function importTxt(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const lines=ev.target.result.split('\n');
+    const ids=new Set(S.records.map(r=>r.id));
+    let cnt=0;
+    lines.forEach(line=>{
+      if(line.startsWith('#')||!line.trim())return;
+      try{
+        const r=JSON.parse(line);
+        if(!ids.has(r.id)){S.records.push(r);ids.add(r.id);cnt++;}
+      }catch(e){}
+    });
+    save();refresh();renderReview();
+    alert(`${cnt}건 가져왔습니다.`);
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ── 페이지 전환 ──
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelector(`.tab-btn[onclick="showPage('${name}')"]`).classList.add('active');
+  if(name==='review'){renderReview();}
+  if(name==='settings'){renderSettings();}
+}
+
+// ── 통합 갱신 ──
+function refresh(){
+  renderAcctGrid('acctGrid','totalBal');
+  renderInCatTags();renderInAcctTags();
+  renderOutCatTags();renderOutAcctTags();
+  populateSel();
+  renderToday();
+  updateBaNotice();
+  updateSettleInfo();
+}
+
+// ── Qcode 실시간 ──
+function updateQnow(){
+  const el=document.getElementById('qnow');
+  if(el)el.textContent=buildQcode(new Date());
+}
+
+// ── 초기화 ──
+load();
+refresh();
+updateQnow();
+setInterval(updateQnow,10000);
+document.getElementById('trFrom').addEventListener('change',updateBaNotice);
+</script>
+</body>
+</html>
