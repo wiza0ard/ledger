@@ -725,6 +725,16 @@
       "memo": "",
       "fromKaSub": "카뱅",
       "toKaSub": "mmf"
+    },
+    {
+      "id": 1782575127709,
+      "type": "adjust",
+      "acct": "카잔고",
+      "qc": "26w270v004",
+      "date": "20260628",
+      "real": 40000,
+      "memo": "",
+      "kaSub": "mmf"
     }
   ],
   "access": [
@@ -785,5 +795,5 @@
       "date": "20260628"
     }
   ],
-  "exportedAt": "2026-06-27T15:45:00.547Z"
+  "exportedAt": "2026-06-27T15:45:29.212Z"
 }
