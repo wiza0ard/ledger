@@ -1,0 +1,17 @@
+# ── 로컬 유틸리티 스크립트 ──
+cleanup_raw.py
+cleanup_raw.exe
+
+# ── 임시/정리 폴더 ──
+deleted/
+
+# ── Windows 시스템 파일 ──
+Thumbs.db
+desktop.ini
+
+# ── Python 빌드 산출물 ──
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
