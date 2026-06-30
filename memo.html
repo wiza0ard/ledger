@@ -106,7 +106,7 @@ html,body{background:var(--bg);color:var(--text);font-family:-apple-system,Blink
 .attach-del-btn{background:rgba(0,0,0,0.55);border:none;color:#ccc;font-size:11px;width:20px;height:20px;border-radius:50%;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .attach-del-btn:hover{background:var(--red);color:#fff}
 .attach-img-wrap .attach-del-btn{position:absolute;top:5px;right:5px}
-.attach-replace-btn{position:absolute;top:5px;right:30px;background:rgba(0,0,0,0.55);border:none;color:#ccc;font-size:13px;width:20px;height:20px;border-radius:50%;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center}
+.attach-replace-btn{position:absolute;top:5px;right:30px;background:rgba(0,0,0,0.55);border:none;color:#ccc;font-size:10px;height:20px;padding:0 5px;border-radius:10px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .attach-replace-btn:hover{background:var(--accent);color:#fff}
 
 .attach-pdf-row{display:flex;align-items:center;gap:6px}
@@ -651,7 +651,7 @@ function attachHtml(attachments,memoId){
       const url=rawPublicUrl(a.filename);
       return `<div class="attach-img-wrap">
         <img class="attach-img" src="${url}?t=${Date.now()}" alt="${escHtml(a.filename)}" onclick="openLightbox('${url}')">
-        <button class="attach-replace-btn" onclick="replaceImage(${memoId},${ai},'${escHtml(a.filename)}')" title="교체">↺</button>
+        <button class="attach-replace-btn" onclick="replaceImage(${memoId},${ai},'${escHtml(a.filename)}')" title="이미지 교체">교체</button>
         <button class="attach-del-btn" onclick="deleteAttach(${memoId},${ai})" title="삭제">✕</button>
         <input type="file" accept="image/*" id="replace-input-${memoId}-${ai}" style="display:none" onchange="doReplaceImage(this,${memoId},${ai},'${escHtml(a.filename)}')">
       </div>`;
@@ -919,6 +919,9 @@ function replaceImage(memoId,attachIdx,filename){
 async function doReplaceImage(input,memoId,attachIdx,filename){
   const file=input.files[0];
   if(!file)return;
+  if(!confirm(`"${filename}" 파일을 선택한 이미지로 교체합니까?\n이 작업은 되돌릴 수 없습니다.`)){
+    input.value='';return;
+  }
   const token=getToken();
   const o=getOwner();
   const prog=document.getElementById('upload-progress');
