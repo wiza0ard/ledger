@@ -204,8 +204,6 @@ mark{background:var(--amber-bg);color:var(--amber);border-radius:2px;padding:0 2
 <div class="tab-bar">
   <div class="tab-inner">
     <button class="tab-btn active" onclick="showTab('write')">✏️ 작성</button>
-    <button class="tab-btn" onclick="showTab('timeline')">📋 타임라인</button>
-    <button class="tab-btn" onclick="showTab('weeks')">📅 주차</button>
     <button class="tab-btn" onclick="showTab('search')">🔍 검색</button>
     <button class="tab-btn" onclick="showTab('access')">🔑 출입비번</button>
   </div>
@@ -252,24 +250,17 @@ mark{background:var(--amber-bg);color:var(--amber);border-radius:2px;padding:0 2
   </div>
 
   <div id="recent-section">
-    <div class="card-title" style="padding:4px 0 8px;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">최근 메모</div>
+    <div class="card-title" style="padding:4px 0 8px;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">최근 메모 <span id="recent-week-label" style="text-transform:none;letter-spacing:0"></span></div>
     <div id="recent-list"></div>
+    <div style="text-align:center;margin-top:10px">
+      <button class="btn btn-ghost" id="recent-more-btn" onclick="expandRecentWeek()" style="display:none">이전 주차 더보기</button>
+    </div>
   </div>
-</div>
-
-<!-- 타임라인 탭 -->
-<div id="tab-timeline" class="page">
-  <div id="timeline-content"></div>
-</div>
-
-<!-- 주차 탭 -->
-<div id="tab-weeks" class="page">
-  <div id="weeks-content"></div>
 </div>
 
 <!-- 검색 탭 -->
 <div id="tab-search" class="page">
-  <input id="search-input" class="search-input" type="text" placeholder="검색어 입력..." oninput="doSearch()">
+  <input id="search-input" class="search-input" type="text" placeholder="검색어, 또는 qcode(26w27 / 26w271)..." oninput="doSearch()">
   <div id="search-result-label" class="search-result-label"></div>
   <div id="search-results"></div>
 </div>
@@ -594,17 +585,15 @@ async function uploadFile(file,filename,isImage=false){
 
 // ── UI ──
 let currentTab='write';
-let weekDetailKey=null;
 
 function showTab(name){
   document.querySelectorAll('.tab-btn').forEach((b,i)=>{
-    b.classList.toggle('active',['write','timeline','weeks','search','access'][i]===name);
+    b.classList.toggle('active',['write','search','access'][i]===name);
   });
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(`tab-${name}`).classList.add('active');
-  currentTab=name;weekDetailKey=null;
-  if(name==='timeline')renderTimeline();
-  if(name==='weeks')renderWeeks();
+  currentTab=name;
+  localStorage.setItem('memo_last_tab',name);
   if(name==='search')doSearch();
   if(name==='access')renderAccessTab();
 }
@@ -644,38 +633,38 @@ function highlightText(text,keyword){
 }
 
 // 첨부 파일 표시 HTML
-function attachHtml(attachments,memoId){
+function attachHtml(attachments,memoId,ctx='r',keyword=''){
   if(!attachments||!attachments.length)return '';
   return '<div class="attach-display">'+attachments.map((a,ai)=>{
     if(a.type==='image'){
       const url=rawPublicUrl(a.filename);
       return `<div class="attach-img-wrap">
         <img class="attach-img" src="${url}?t=${Date.now()}" alt="${escHtml(a.filename)}" onclick="openLightbox('${url}')">
-        <button class="attach-replace-btn" onclick="replaceImage(${memoId},${ai},'${escHtml(a.filename)}')" title="이미지 교체">교체</button>
+        <button class="attach-replace-btn" onclick="replaceImage(this,${memoId},${ai},'${escHtml(a.filename)}')" title="이미지 교체">교체</button>
         <button class="attach-del-btn" onclick="deleteAttach(${memoId},${ai})" title="삭제">✕</button>
-        <input type="file" accept="image/*" id="replace-input-${memoId}-${ai}" style="display:none" onchange="doReplaceImage(this,${memoId},${ai},'${escHtml(a.filename)}')">
+        <input type="file" accept="image/*" id="replace-input-${ctx}-${memoId}-${ai}" style="display:none" onchange="doReplaceImage(this,${memoId},${ai},'${escHtml(a.filename)}')">
       </div>`;
     } else if(a.type==='audio'){
       const displayName=a.origName||a.filename;
-      const uid=`audio-${memoId}-${ai}`;
+      const uid=`audio-${ctx}-${memoId}-${ai}`;
       return `<div class="attach-media-row">
         <audio class="attach-audio" id="${uid}" controls></audio>
         <div class="attach-name-row">
           <span class="attach-name-icon">🎵</span>
-          <span class="attach-fname" id="fname-${uid}">${escHtml(displayName)}</span>
+          <span class="attach-fname" id="fname-${uid}">${highlightText(displayName,keyword)}</span>
           <button class="attach-edit-btn" onclick="editFname('${memoId}',${ai},'${uid}')" title="파일명 수정">✏️</button>
           <button class="attach-del-btn" onclick="deleteAttach(${memoId},${ai})" title="삭제">✕</button>
         </div>
       </div>`;
     } else if(a.type==='pdf'){
       const displayName=a.origName||a.filename;
-      const uid=`pdf-${memoId}-${ai}`;
+      const uid=`pdf-${ctx}-${memoId}-${ai}`;
       return `<div class="attach-pdf">
         <div class="attach-pdf-row">
           <a class="attach-pdf-link" href="#" onclick="openPdf('${escHtml(a.filename)}');return false;">
             <span class="attach-pdf-icon">📄</span>
           </a>
-          <span class="attach-fname" id="fname-${uid}">${escHtml(displayName)}</span>
+          <span class="attach-fname" id="fname-${uid}">${highlightText(displayName,keyword)}</span>
           <button class="attach-edit-btn" onclick="editFname('${memoId}',${ai},'${uid}')" title="파일명 수정">✏️</button>
           <button class="attach-del-btn" onclick="deleteAttach(${memoId},${ai})" title="삭제">✕</button>
         </div>
@@ -684,48 +673,48 @@ function attachHtml(attachments,memoId){
   }).join('')+'</div>';
 }
 
-function memoEntryHtml(memo,keyword=''){
+function memoEntryHtml(memo,keyword='',ctx='r'){
   const label=qcodeLabel(memo.qc);
   const body=keyword?highlightText(memo.body,keyword):escHtml(memo.body);
-  return `<div class="memo-entry" id="entry-${memo.id}">
+  return `<div class="memo-entry" id="entry-${ctx}-${memo.id}">
     <div class="memo-qcode">${escHtml(memo.qc)}<span class="memo-qcode-label">${escHtml(label)}</span></div>
-    <div class="memo-body-wrap" id="body-wrap-${memo.id}">
+    <div class="memo-body-wrap" id="body-wrap-${ctx}-${memo.id}">
       ${memo.body?`<div class="memo-body">${body}</div>`:''}
     </div>
-    ${attachHtml(memo.attachments,memo.id)}
+    ${attachHtml(memo.attachments,memo.id,ctx,keyword)}
     <div class="memo-actions">
-      <button class="memo-act-btn" onclick="startEdit(${memo.id})">수정</button>
+      <button class="memo-act-btn" onclick="startEdit(${memo.id},'${ctx}')">수정</button>
       <button class="memo-act-btn del" onclick="deleteMemo(${memo.id})">삭제</button>
     </div>
   </div>`;
 }
 
-function startEdit(id){
+function startEdit(id,ctx='r'){
   const memo=memos.find(m=>m.id===id);
   if(!memo)return;
-  const wrap=document.getElementById(`body-wrap-${id}`);
+  const wrap=document.getElementById(`body-wrap-${ctx}-${id}`);
   if(!wrap)return;
   // 이미 편집 중이면 무시
   if(wrap.querySelector('textarea'))return;
-  wrap.innerHTML=`<textarea class="memo-textarea edit-textarea" id="edit-ta-${id}">${escHtml(memo.body||'')}</textarea>
+  wrap.innerHTML=`<textarea class="memo-textarea edit-textarea" id="edit-ta-${ctx}-${id}">${escHtml(memo.body||'')}</textarea>
     <div class="btn-row" style="margin-top:8px">
-      <button class="btn btn-accent" style="padding:7px 14px;font-size:13px" onclick="commitEdit(${id})">저장</button>
-      <button class="btn btn-ghost" style="padding:7px 14px;font-size:13px" onclick="cancelEdit(${id})">취소</button>
+      <button class="btn btn-accent" style="padding:7px 14px;font-size:13px" onclick="commitEdit(${id},'${ctx}')">저장</button>
+      <button class="btn btn-ghost" style="padding:7px 14px;font-size:13px" onclick="cancelEdit(${id},'${ctx}')">취소</button>
     </div>`;
-  const ta=document.getElementById(`edit-ta-${id}`);
+  const ta=document.getElementById(`edit-ta-${ctx}-${id}`);
   if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
 }
 
-function cancelEdit(id){
+function cancelEdit(id,ctx='r'){
   const memo=memos.find(m=>m.id===id);
   if(!memo)return;
-  const wrap=document.getElementById(`body-wrap-${id}`);
+  const wrap=document.getElementById(`body-wrap-${ctx}-${id}`);
   if(!wrap)return;
   wrap.innerHTML=memo.body?`<div class="memo-body">${escHtml(memo.body)}</div>`:'';
 }
 
-async function commitEdit(id){
-  const ta=document.getElementById(`edit-ta-${id}`);
+async function commitEdit(id,ctx='r'){
+  const ta=document.getElementById(`edit-ta-${ctx}-${id}`);
   if(!ta)return;
   const newBody=ta.value.trim();
   const memo=memos.find(m=>m.id===id);
@@ -785,11 +774,12 @@ async function loadAccess(){
   if(!token||!url)return;
   try{
     const res=await fetch(url,{headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'}});
-    if(res.status===404){accessList=[];accessSha=null;return;}
+    if(res.status===404){accessList=[];accessSha=null;if(currentTab==='access')renderAccessTab();return;}
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     accessSha=data.sha;
     accessList=JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+    if(currentTab==='access')renderAccessTab();
   }catch(e){
     console.error('출입비번 불러오기 실패',e);
   }
@@ -912,8 +902,8 @@ async function deleteAttach(memoId,attachIdx){
   await saveMemos();
 }
 
-function replaceImage(memoId,attachIdx,filename){
-  document.getElementById(`replace-input-${memoId}-${attachIdx}`).click();
+function replaceImage(btn,memoId,attachIdx,filename){
+  btn.parentElement.querySelector('input[type=file]').click();
 }
 
 async function doReplaceImage(input,memoId,attachIdx,filename){
@@ -948,8 +938,9 @@ async function doReplaceImage(input,memoId,attachIdx,filename){
     if(!putRes.ok)throw new Error(`업로드 실패 ${putRes.status}`);
     prog.textContent='교체 완료';
     // 이미지 즉시 갱신
-    const img=document.querySelector(`img[alt="${filename}"]`);
-    if(img)img.src=rawPublicUrl(filename)+'?t='+Date.now();
+    document.querySelectorAll(`img[alt="${filename}"]`).forEach(img=>{
+      img.src=rawPublicUrl(filename)+'?t='+Date.now();
+    });
   }catch(e){
     alert(`이미지 교체 실패: ${e.message}`);
   }finally{
@@ -995,79 +986,53 @@ function closeLightbox(){
 }
 
 // 렌더링
+let recentWeeksShown=1; // 표시 중인 주차 개수 (최신부터)
+
 function renderRecent(){
   const el=document.getElementById('recent-list');
-  const recent=memos.slice(0,5);
-  if(!recent.length){el.innerHTML='<div class="empty">작성된 메모가 없습니다.</div>';return;}
-  el.innerHTML=recent.map(m=>memoEntryHtml(m)).join('');
-}
-
-function renderTimeline(){
-  const el=document.getElementById('timeline-content');
-  if(!memos.length){el.innerHTML='<div class="empty">작성된 메모가 없습니다.</div>';return;}
-  const groups=groupByWeek(memos);
-  let html='';
-  for(const [wk,items] of groups){
-    html+=`<div class="week-section">
-      <div class="week-header" onclick="toggleWeek('${wk}')">
-        <span><span class="week-label">${weekLabel(wk)}</span></span>
-        <span class="week-count">${items.length}개 ▾</span>
-      </div>
-      <div class="week-body" id="wb-${wk}">
-        ${items.map(m=>memoEntryHtml(m)).join('')}
-      </div>
-    </div>`;
+  const labelEl=document.getElementById('recent-week-label');
+  const moreBtn=document.getElementById('recent-more-btn');
+  if(!memos.length){
+    el.innerHTML='<div class="empty">작성된 메모가 없습니다.</div>';
+    if(labelEl)labelEl.textContent='';
+    if(moreBtn)moreBtn.style.display='none';
+    return;
   }
-  el.innerHTML=html;
+  const groups=groupByWeek(memos); // 최신순 Map
+  const weekKeys=[...groups.keys()];
+  const shownKeys=weekKeys.slice(0,recentWeeksShown);
+  const items=shownKeys.flatMap(wk=>groups.get(wk));
+  el.innerHTML=items.map(m=>memoEntryHtml(m,'','r')).join('');
+  if(labelEl)labelEl.textContent=shownKeys.length?`(${weekLabel(shownKeys[shownKeys.length-1])} ~ ${weekLabel(shownKeys[0])})`:'';
+  if(moreBtn)moreBtn.style.display=(recentWeeksShown<weekKeys.length)?'inline-flex':'none';
   setTimeout(loadAllAudioBlobs,50);
 }
 
-function toggleWeek(wk){
-  const el=document.getElementById(`wb-${wk}`);
-  if(!el)return;
-  el.classList.toggle('collapsed');
+function expandRecentWeek(){
+  recentWeeksShown++;
+  renderRecent();
 }
-
-function renderWeeks(){
-  const el=document.getElementById('weeks-content');
-  if(weekDetailKey){renderWeekDetail(weekDetailKey);return;}
-  if(!memos.length){el.innerHTML='<div class="empty">작성된 메모가 없습니다.</div>';return;}
-  const groups=groupByWeek(memos);
-  let html='';
-  for(const [wk,items] of groups){
-    html+=`<div class="week-list-item" onclick="openWeekDetail('${wk}')">
-      <div>
-        <div class="week-list-label">${weekLabel(wk)}</div>
-        <div class="week-list-meta">${items.length}개 메모</div>
-      </div>
-      <span class="week-list-arrow">›</span>
-    </div>`;
-  }
-  el.innerHTML=html;
-}
-
-function openWeekDetail(wk){weekDetailKey=wk;renderWeekDetail(wk);}
-
-function renderWeekDetail(wk){
-  const el=document.getElementById('weeks-content');
-  const items=memos.filter(m=>weekKey(m.qc)===wk);
-  let html=`<button class="back-btn" onclick="backToWeeks()">← 주차 목록</button>
-    <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px">${weekLabel(wk)}<span style="font-size:12px;color:var(--text3);font-weight:400;margin-left:8px">${items.length}개</span></div>`;
-  html+=items.length?items.map(m=>memoEntryHtml(m)).join(''):'<div class="empty">메모가 없습니다.</div>';
-  el.innerHTML=html;
-  setTimeout(loadAllAudioBlobs,50);
-}
-
-function backToWeeks(){weekDetailKey=null;renderWeeks();}
 
 function doSearch(){
-  const kw=document.getElementById('search-input').value.trim();
+  const kwRaw=document.getElementById('search-input').value.trim();
   const labelEl=document.getElementById('search-result-label');
   const resEl=document.getElementById('search-results');
-  if(!kw){labelEl.textContent='';resEl.innerHTML='';return;}
-  const hits=memos.filter(m=>(m.body&&m.body.includes(kw))||m.qc.includes(kw));
+  if(!kwRaw){labelEl.textContent='';resEl.innerHTML='';return;}
+
+  let hits;
+  // qcode 패턴 인식: "26w27" (주차) 또는 "26w271" (요일까지) 형태
+  const qcPattern=/^\d{2}w\d{2}\d?$/;
+  if(qcPattern.test(kwRaw)){
+    hits=memos.filter(m=>m.qc.startsWith(kwRaw));
+  } else {
+    hits=memos.filter(m=>
+      (m.body&&m.body.includes(kwRaw))||
+      m.qc.includes(kwRaw)||
+      (m.attachments||[]).some(a=>(a.origName&&a.origName.includes(kwRaw))||(a.filename&&a.filename.includes(kwRaw)))
+    );
+  }
   labelEl.textContent=`${hits.length}개 결과`;
-  resEl.innerHTML=hits.length?hits.map(m=>memoEntryHtml(m,kw)).join(''):'<div class="empty">결과 없음</div>';
+  resEl.innerHTML=hits.length?hits.map(m=>memoEntryHtml(m,kwRaw,'s')).join(''):'<div class="empty">결과 없음</div>';
   setTimeout(loadAllAudioBlobs,50);
 }
 
@@ -1083,10 +1048,7 @@ function groupByWeek(list){
 
 function renderAll(){
   renderRecent();
-  if(currentTab==='timeline')renderTimeline();
-  if(currentTab==='weeks')renderWeeks();
   if(currentTab==='search')doSearch();
-  setTimeout(loadAllAudioBlobs,50);
 }
 
 function loadAllAudioBlobs(){
@@ -1164,6 +1126,11 @@ document.addEventListener('visibilitychange',()=>{
     loadAccess();
   }
 });
+
+const savedTab=localStorage.getItem('memo_last_tab');
+if(savedTab&&['write','search','access'].includes(savedTab)){
+  showTab(savedTab);
+}
 
 if(getToken()&&getOwner()){
   loadMemos({silent:false});
