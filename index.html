@@ -501,6 +501,19 @@ function renderAcctGrid(gridId,totalId){
   const tel=document.getElementById(totalId);
   tel.textContent=fmt(total);
   tel.className='total-val '+(total>=0?'pos':'neg');
+  const ji=bal['지잔고']||0;
+  const shu=bal['슈잔고']||0;
+  const ba=bal['바잔고']||0;
+  const baLock=S.baLock||0;
+  const avail=total-ji+(shu-300)+Math.max(0,ba-baLock-300);
+  let avel=document.getElementById(totalId+'-avail');
+  if(!avel){
+    avel=document.createElement('div');
+    avel.id=totalId+'-avail';
+    avel.style.cssText='font-size:12px;color:var(--text3);margin-top:2px;text-align:right';
+    tel.parentNode.appendChild(avel);
+  }
+  avel.textContent=`가용 ${fmt(avail)}`;
 }
 
 // ── 태그 ──
