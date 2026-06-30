@@ -1019,6 +1019,7 @@ function renderTimeline(){
     </div>`;
   }
   el.innerHTML=html;
+  setTimeout(loadAllAudioBlobs,50);
 }
 
 function toggleWeek(wk){
@@ -1054,6 +1055,7 @@ function renderWeekDetail(wk){
     <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px">${weekLabel(wk)}<span style="font-size:12px;color:var(--text3);font-weight:400;margin-left:8px">${items.length}개</span></div>`;
   html+=items.length?items.map(m=>memoEntryHtml(m)).join(''):'<div class="empty">메모가 없습니다.</div>';
   el.innerHTML=html;
+  setTimeout(loadAllAudioBlobs,50);
 }
 
 function backToWeeks(){weekDetailKey=null;renderWeeks();}
@@ -1066,6 +1068,7 @@ function doSearch(){
   const hits=memos.filter(m=>(m.body&&m.body.includes(kw))||m.qc.includes(kw));
   labelEl.textContent=`${hits.length}개 결과`;
   resEl.innerHTML=hits.length?hits.map(m=>memoEntryHtml(m,kw)).join(''):'<div class="empty">결과 없음</div>';
+  setTimeout(loadAllAudioBlobs,50);
 }
 
 function groupByWeek(list){
