@@ -296,6 +296,7 @@ tr:last-child td{border-bottom:none}
   <div class="acct-grid" id="reviewAcctGrid"></div>
   <div class="total-row">
     <span class="total-label">총잔고</span>
+    <span class="total-avail" id="reviewTotal-avail"></span>
     <span class="total-val" id="reviewTotal">0</span>
   </div>
 
@@ -1199,6 +1200,7 @@ function showPage(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   document.querySelector(`.tab-btn[onclick="showPage('${name}')"]`).classList.add('active');
+  localStorage.setItem('ldg_last_page',name);
   if(name==='review'){renderReview();}
   if(name==='settings'){renderSettings();}
 }
@@ -1226,6 +1228,11 @@ refresh();
 updateQnow();
 renderGhTokenStatus();
 setInterval(updateQnow,10000);
+
+const savedPage=localStorage.getItem('ldg_last_page');
+if(savedPage&&['input','review','settings'].includes(savedPage)){
+  showPage(savedPage);
+}
 
 // 자동 저장: save() 호출 시 GitHub에도 디바운스 저장
 const _origSave=save;
