@@ -1052,17 +1052,15 @@ function renderAll(){
 }
 
 function loadAllAudioBlobs(){
-  memos.forEach(m=>{
-    if(!m.attachments)return;
-    m.attachments.forEach((a,ai)=>{
-      if(a.type!=='audio')return;
-      const uid=`audio-${m.id}-${ai}`;
-      const el=document.getElementById(uid);
-      if(el&&!el.dataset.loaded){
-        el.dataset.loaded='1';
-        loadAudioBlob(a.filename,uid);
-      }
-    });
+  document.querySelectorAll('audio.attach-audio').forEach(el=>{
+    if(el.dataset.loaded)return;
+    const m=el.id.match(/^audio-(.+)-(\d+)-(\d+)$/);
+    if(!m)return;
+    const[,ctx,memoId,ai]=m;
+    const memo=memos.find(mm=>String(mm.id)===memoId);
+    if(!memo||!memo.attachments||!memo.attachments[ai])return;
+    el.dataset.loaded='1';
+    loadAudioBlob(memo.attachments[ai].filename,el.id);
   });
 }
 
