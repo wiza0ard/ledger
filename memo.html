@@ -343,8 +343,8 @@ function ghRawApiUrl(filename){
   const o=getOwner();if(!o)return null;
   return `https://api.github.com/repos/${o}/${GH_REPO_NAME}/contents/${GH_RAW_DIR}/${filename}`;
 }
-function rawPublicUrl(filename){
-  return `https://raw.githubusercontent.com/${getOwner()}/${GH_REPO_NAME}/main/${GH_RAW_DIR}/${filename}`;
+function rawPublicUrl(filename,ref='main'){
+  return `https://raw.githubusercontent.com/${getOwner()}/${GH_REPO_NAME}/${ref}/${GH_RAW_DIR}/${filename}`;
 }
 
 let ghSha=null;
@@ -583,7 +583,8 @@ async function uploadFile(file,filename,isImage=false){
     body:JSON.stringify(body)
   });
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||res.status);}
-  return filename;
+  const data=await res.json().catch(()=>({}));
+  return {filename,commit:data&&data.commit&&data.commit.sha?data.commit.sha:null};
 }
 
 // ── UI ──
@@ -640,7 +641,7 @@ function attachHtml(attachments,memoId,ctx='r',keyword=''){
   if(!attachments||!attachments.length)return '';
   return '<div class="attach-display">'+attachments.map((a,ai)=>{
     if(a.type==='image'){
-      const url=rawPublicUrl(a.filename);
+      const url=a.commit?rawPublicUrl(a.filename,a.commit):rawPublicUrl(a.filename);
       return `<div class="attach-img-wrap">
         <img class="attach-img" src="${url}?t=${Date.now()}" alt="${escHtml(a.filename)}" onclick="openLightbox('${url}')">
         <button class="attach-replace-btn" onclick="replaceImage(this,${memoId},${ai},'${escHtml(a.filename)}')" title="이미지 교체">교체</button>
@@ -939,10 +940,18 @@ async function doReplaceImage(input,memoId,attachIdx,filename){
        body:JSON.stringify({message:`replace ${filename}`,content:b64,sha})}
     );
     if(!putRes.ok)throw new Error(`업로드 실패 ${putRes.status}`);
+    const putData=await putRes.json().catch(()=>({}));
+    const newCommit=putData&&putData.commit&&putData.commit.sha?putData.commit.sha:null;
+    // 첨부 데이터에 커밋 SHA 저장 (캐시 갱신 지연 우회용)
+    const memo=memos.find(m=>m.id==memoId);
+    if(memo&&memo.attachments[attachIdx]){
+      memo.attachments[attachIdx].commit=newCommit;
+      await saveMemos();
+    }
     prog.textContent='교체 완료';
-    // 이미지 즉시 갱신
+    // 이미지 즉시 갱신 (커밋 SHA 기반 URL이 있으면 우선 사용 → 캐시 지연 없이 반영)
     document.querySelectorAll(`img[alt="${filename}"]`).forEach(img=>{
-      img.src=rawPublicUrl(filename)+'?t='+Date.now();
+      img.src=(newCommit?rawPublicUrl(filename,newCommit):rawPublicUrl(filename))+'?t='+Date.now();
     });
   }catch(e){
     alert(`이미지 교체 실패: ${e.message}`);
@@ -1092,8 +1101,8 @@ async function saveMemo(){
         const ext=a.type==='image'?'jpg':fileExt(a.file.name);
         const filename=resolveFilename(qc,ext,existingNames,localUsed);
         prog.textContent=`업로드 중 (${i+1}/${pendingAttachments.length}) ${filename}`;
-        await uploadFile(a.file,filename,a.type==='image');
-        attachments.push({type:a.type,filename,origName:(a.type==='pdf'||a.type==='audio')?a.file.name:undefined});
+        const up=await uploadFile(a.file,filename,a.type==='image');
+        attachments.push({type:a.type,filename,origName:(a.type==='pdf'||a.type==='audio')?a.file.name:undefined,commit:a.type==='image'?up.commit:undefined});
       }catch(e){
         prog.style.display='none';btn.disabled=false;
         alert(`파일 업로드 실패: ${e.message}`);return;
